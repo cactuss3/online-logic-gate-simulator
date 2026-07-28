@@ -1,0 +1,158 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #191a1b;
+}
+
+canvas {
+  display: block;
+}
+
+/* ===== MENU ===== */
+
+#menu {
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+
+  max-width: calc(100% - 20px);
+  box-sizing: border-box;
+  padding: 10px;
+
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  border-radius: 20px;
+
+  overflow: hidden;
+
+  /* Estado inicial: oculto y preparado para aceleración por hardware */
+  opacity: 0;
+  will-change: transform, opacity, filter;
+
+  /* ANIMACIÓN PROFESIONAL: Sube con un rebase elástico suave en 0.75s */
+  animation: subirMenuProfesional 0.75s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  
+  /* Retraso de inicio antes de subir */
+  animation-delay: 0.5s;
+}
+
+/* ===== BOTONES NORMALES ===== */
+
+#menu button:not(#deleteButton) {
+  min-width: 120px;
+  padding: 10px 16px;
+
+  border: none;
+  border-radius: 10px;
+
+  background: rgba(85, 85, 85, 0.655);
+  color: white;
+  font-size: 20px;
+  font-weight: 600;
+  cursor: pointer;
+
+  transition:
+    transform 0.35s ease,
+    opacity 0.35s ease,
+    background 0.2s ease;
+}
+
+#menu button:not(#deleteButton):hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+#menu button:not(#deleteButton):active {
+  transform: scale(0.97);
+}
+
+/* Los botones normales bajan al mostrar Delete */
+
+#menu.hide button:not(#deleteButton) {
+  transform: translateY(80px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ===== DELETE BUTTON ===== */
+
+#deleteButton {
+  position: absolute;
+
+  left: 10px;
+  right: 10px;
+  top: 10px;
+  bottom: 10px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  border: none;
+  border-radius: 10px;
+
+  background-color: #d32f2f;
+  color: white;
+  font-size: 22px;
+  font-weight: 600;
+  cursor: pointer;
+
+  /* Brillo suave por defecto */
+  box-shadow:
+    0 0 6px rgba(255, 0, 0, 0.25),
+    0 0 12px rgba(255, 0, 0, 0.15);
+
+  opacity: 0;
+  transform: translateY(-60px);
+  pointer-events: none;
+
+  transition:
+    transform .35s ease,
+    opacity .35s ease,
+    background-color .2s ease,
+    box-shadow .2s ease;
+}
+
+#deleteButton:hover {
+  background-color: #ff3b3b;
+
+  /* Brillo intenso al pasar el ratón */
+  box-shadow:
+    0 0 12px rgba(255, 0, 0, 0.5),
+    0 0 24px rgba(255, 0, 0, 0.3),
+    0 0 40px rgba(255, 0, 0, 0.2);
+}
+
+#deleteButton:active {
+  transform: translateY(0) scale(0.98);
+}
+
+#deleteButton.show {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* ===== KEYFRAMES ENTRADA MENÚ (PREMIUM EFFECT) ===== */
+
+@keyframes subirMenuProfesional {
+  0% {
+    /* Comienza abajo, invisible y muy borroso para simular velocidad */
+    transform: translateX(-50%) translateY(120px) scale(0.92);
+    opacity: 0;
+    filter: blur(8px);
+  }
+  /* El "cubic-bezier" se encarga de estirar el menú un poco más arriba de su posición 
+     final (overshoot) y luego asentarlo suavemente sin necesidad de pasos intermedios */
+  100% {
+    /* Llega a su posición exacta, nítido y a tamaño real */
+    transform: translateX(-50%) translateY(0) scale(1);
+    opacity: 1;
+    filter: blur(0);
+  }
+}

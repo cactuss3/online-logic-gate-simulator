@@ -138,6 +138,111 @@ canvas {
   pointer-events: auto;
 }
 
+/* ===== ACCEPT DATA SAVE ===== */
+
+#dataBanner {
+    position: fixed;
+    left: 20px;
+    bottom: 20px;
+
+    width: 340px;
+    padding: 22px;
+
+    background-color: #16213e;
+    color: #ffffff;
+
+    border-left: 8px solid #00b4d8;
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+
+    font-family: "Poppins", sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    text-align: left;
+
+    z-index: 1000;
+
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+#dataBanner.show {
+    visibility: visible;
+    pointer-events: auto;
+
+    animation: aparecerBanner 0.85s
+               cubic-bezier(0.22, 1, 0.36, 1)
+               forwards;
+}
+#dataBanner.hide {
+    visibility: visible;
+    pointer-events: none;
+
+    animation: desaparecerBanner 0.45s
+               cubic-bezier(0.4, 0, 0.2, 1)
+               forwards;
+}
+
+#dataBanner p {
+    margin: 0;
+    font-weight: 500;
+}
+#dataBanner button {
+    margin-top: 18px;
+    margin-right: 10px;
+    padding: 8px 16px;
+
+    border: none;
+    border-radius: 6px;
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+#acceptBtn {
+    background-color: #00b4d8;
+    color: white;
+}
+
+#rejectBtn {
+    background-color: #f1f1f1;
+    color: #222;
+}
+
+#dataBanner button:hover {
+    opacity: 0.9;
+}
+
+@keyframes aparecerBanner {
+    0% {
+        transform: translateX(-80px) scale(0.92);
+        opacity: 0;
+        filter: blur(8px);
+    }
+
+    100% {
+        transform: translateX(0) scale(1);
+        opacity: 1;
+        filter: blur(0);
+    }
+}
+@keyframes desaparecerBanner {
+    0% {
+        transform: translateX(0) scale(1);
+        opacity: 1;
+        filter: blur(0);
+    }
+    100% {
+        transform: translateX(-45px) scale(0.98);
+        opacity: 0;
+        filter: blur(3px);
+    }
+}
+
 /* ===== KEYFRAMES ENTRADA MENÚ (PREMIUM EFFECT) ===== */
 
 @keyframes subirMenuProfesional {
@@ -156,3 +261,4 @@ canvas {
     filter: blur(0);
   }
 }
+

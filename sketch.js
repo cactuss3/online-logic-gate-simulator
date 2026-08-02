@@ -54,8 +54,9 @@ const debug = {
 
 let dynamicGates = []
 
-let message = "Welcome! Learn, build, and experiment with logic gates here."
-message = "Good to see you again!"
+let message = ""
+
+let resetTimer = 0
 
 let gateList = new Map()
 let connectionsList = new Map()
@@ -65,15 +66,41 @@ function preload(){
     font = loadFont("assets/CascadiaCode.ttf");
 }
 
+// html elements
+let canvas;
 let buttons = []
+let deleteButton;
+let banner;
+
 function setup(){
     textFont(font)
     textSize(visuals.textSize)
     
-    let c = createCanvas(windowWidth, windowHeight)
-    c.elt.addEventListener('contextmenu', e => e.preventDefault())
+    canvas = createCanvas(windowWidth, windowHeight)
+    canvas.elt.addEventListener('contextmenu', e => e.preventDefault())
 
     centerCanvas()
+    setupButtons()
+    setupUserExperience()
+}
+function setupUserExperience(){
+    if(getItem("dataCollectAccepted") == null){
+        newMessage("Welcome! Let's explore digital logic together.")
+        banner.classList.add("show");
+    }else{
+        const lastSketch = getItem("sketch")
+        if(lastSketch != null){
+            const succes = loadSketch(lastSketch)
+            if(succes){
+                newMessage("Sketch restored!")
+            }else{
+                newMessage("Welcome again!")
+            }
+        }
+    }
+    
+}
+function setupButtons(){
     buttons.push(createButton("INPUT"))
     buttons.push(createButton("AND"))
     buttons.push(createButton("OR"))
@@ -90,12 +117,12 @@ function setup(){
     buttons[3].mousePressed(() => {quick.create("NOT")})
     buttons[4].mousePressed(() => {quick.create("LED")})
 
-    //TRASH
-    const miBoton = document.getElementById('deleteButton');
-
-    miBoton.addEventListener('mouseup', (event) => {
+    deleteButton = document.getElementById('deleteButton');
+    deleteButton.addEventListener('mouseup', (event) => {
         removeButtonTrigger()
     });
+
+    banner = document.getElementById("dataBanner");
 }
 function draw(){
     background("#191a1b")
@@ -103,6 +130,7 @@ function draw(){
     drawWorld()
     cameraLogic()
     messageManagerTick()
+    extra()
     debugMenu()
 }
 function debugMenu(){
@@ -187,6 +215,30 @@ function drawWorld(){
         entity.gate.get(gateId).tick(gateId)
     }
 }
+function extra(){
+    push()
+    noStroke()
+    fill("red")
+    rect(0, height - 3, ease(constrain(resetTimer/width, 0, 1)) * width, 3)
+    if(keyIsDown(82)){
+        resetTimer += 0.4 * deltaTime
+    }else{
+        if(resetTimer < 0)
+            resetTimer = 0
+        if(resetTimer > 0)
+            resetTimer -= 1 * deltaTime
+    }
+    if(resetTimer > width){
+        resetAll()
+        resetTimer = -3000
+    }
+    textAlign(LEFT, BOTTOM)
+    textSize(24)
+    fill(255,0,0, constrain(resetTimer/width, 0, 1)*255)
+    text("Reseting...", 10, height - 10)
+    pop()
+}
+
 
 class gate {
     constructor(x = 0, y = 0, name = "AND", inputs = 2, outputs = 1){
@@ -419,6 +471,10 @@ function messageManagerTick(){
     }
     pop()
 }
+function newMessage(msg){
+    messageTime = -600
+    message = msg
+}
 function ease(t) {
   return t * (2 - t);
 }
@@ -435,6 +491,7 @@ function mouseWheel(event){
     }
 }
 
+// Functions
 const transform = {
     toScreen: {
         x(x){
@@ -567,6 +624,10 @@ const entity = {
     },
     connection: {
         create(from, to, joints = []){
+            if(from.index == -1 || to.index == -1){
+                console.warn("connection was trying to connect to a missing node")
+                return("unable to conect to missing node")
+            }
             if(entity.gate.exist(from.gate) && entity.gate.exist(to.gate)){
                 connectionsList.set(
                     entity.getNextId(connectionsList),
@@ -590,7 +651,6 @@ const entity = {
             }
         }
     },
-
     getNextId(map) {
         let id = 0;
 
@@ -601,7 +661,6 @@ const entity = {
         return id;
     }
 }
-
 const preset = {
     // name, inputs, outputs
     AND: ["AND", 2, 1],
@@ -628,27 +687,11 @@ const quick = {
                 ...preset[type]
             )
         }
-        moveGateWithMouse(Array.from(gateList.keys()).pop())
+        mouse.grabGate(Array.from(gateList.keys()).pop())
     }
 }
-function moveGateWithMouse(id) {
-    mouse.hoveredGate = id
-    mouse.mode = "dragging"
-    mouse.selected = [{
-        mode: "gate",
-        id: {
-            gate: id,
-            index: -1
-        },
-        grabOffset: {
-            x: entity.gate.get(id).dimensions.width/2,
-            y: entity.gate.get(id).dimensions.height/2
-        }
-    }]
-    mouse.start = {x: mouseX, y: mouseY}
-    mouse.startWorld = {x: transform.fromScreen.x(mouseX), y: transform.fromScreen.y(mouseY)}
-    moveAtTop(mouse.hoveredGate)
-}
+
+
 
 
 // --------- MOUSE ---------
@@ -660,196 +703,102 @@ let mouse = {
     startWorld: {x: 0, y: 0},
     selectingBox: {start: {x: 0, y: 0}, end: {x: 0, y: 0}, active: false},
     points: [],
-}
-document.addEventListener("pointerdown", (e) => {
-    if (e.target === document.querySelector("canvas")) {
+    clickAccepted: false,
 
-        if (e.button === 0) {
-            leftClickLogic();
-        } else if (e.button === 2) {
-            rightClickLogic();
-        }
-    }
-});
-function leftClickLogic(){
-    mouse.start = {x: mouseX, y: mouseY}
-    mouse.startWorld = {x: transform.fromScreen.x(mouseX), y: transform.fromScreen.y(mouseY)}
-    if(mouse.mode == "idle"){    
-        if(keyIsDown(ALT)){
-            // area select
-            mouse.mode = "selecting"
-            mouse.selectingBox = {
-                start: {
-                    x: mouse.startWorld.x,
-                    y: mouse.startWorld.y,
-                },
-                end: {
-                    x: mouse.startWorld.x,
-                    y: mouse.startWorld.y,
-                },
-                active: true
-            }
-            mouse.selected = []
-        }else{
-            // click select
-            let grabOffset = {x: 0, y: 0}
-            let selected = {
-                gate: getHoveredGate("nodes"),
-                index: getHoveredNode(getHoveredGate("nodes"), "outputs"),
-            }
-            if(selected.index == -1 && selected.gate != -1){
-                const selGate = getHoveredGate("precise")
-                if(entity.gate.exist(selGate)){
-                    selected = {
-                        gate: selGate,
-                        index: -1,
-                    }
-                    grabOffset = {
-                        x: transform.fromScreen.x(mouseX) - entity.gate.get(selGate).pos.x,
-                        y: transform.fromScreen.y(mouseY) - entity.gate.get(selGate).pos.y
-                    }
-                }else{
-                    selected = {
-                        gate: -1,
-                        index: -1
-                    }
+
+    click(){
+
+        //CLICK STARTED
+        
+        //save start positions
+        mouse.start = {x: mouseX, y: mouseY}
+        mouse.startWorld = {x: transform.fromScreen.x(mouseX), y: transform.fromScreen.y(mouseY)}
+
+        if(mouse.mode == "idle"){
+            // execute from idle state
+            if(keyIsDown(ALT)){
+                // area select
+                mouse.mode = "selecting"
+                mouse.selectingBox = {
+                    start: {
+                        x: mouse.startWorld.x,
+                        y: mouse.startWorld.y,
+                    },
+                    end: {
+                        x: mouse.startWorld.x,
+                        y: mouse.startWorld.y,
+                    },
+                    active: true
                 }
-            }
-            if(
-                mouse.selected.some(item => item.id.gate === selected.gate) &&
-                mouse.selected.some(item => item.id.index === selected.index)
-            ){
-                for(let obj of mouse.selected){
-                    obj.grabOffset = {
-                        x: transform.fromScreen.x(mouseX) - entity.gate.get(obj.id.gate).pos.x,
-                        y: transform.fromScreen.y(mouseY) - entity.gate.get(obj.id.gate).pos.y
-                    }
-                }
+                mouse.selected = []
             }else{
-                if(selected.gate != -1){
-                    if(selected.index != -1){
-                        mouse.drawingConnection = true
+                // click select
+                let grabOffset = {x: 0, y: 0}
+                let selected = {
+                    gate: getHoveredGate("nodes"),
+                    index: getHoveredNode(getHoveredGate("nodes"), "outputs"),
+                }
+                if(selected.index == -1 && selected.gate != -1){
+                    const selGate = getHoveredGate("precise")
+                    if(entity.gate.exist(selGate)){
+                        selected = {
+                            gate: selGate,
+                            index: -1,
+                        }
+                        grabOffset = {
+                            x: transform.fromScreen.x(mouseX) - entity.gate.get(selGate).pos.x,
+                            y: transform.fromScreen.y(mouseY) - entity.gate.get(selGate).pos.y
+                        }
+                    }else{
+                        selected = {
+                            gate: -1,
+                            index: -1
+                        }
                     }
-                    mouse.selected = []
-                    mouse.selected.push(
-                        {
-                            mode: selected.index >= 0 ? "node" : "gate",
-                            id: selected,
-                            grabOffset: grabOffset
+                }
+                if(
+                    mouse.selected.some(item => item.id.gate === selected.gate) &&
+                    mouse.selected.some(item => item.id.index === selected.index) &&
+                    selected.index == -1
+                ){
+                    for(let obj of mouse.selected){
+                        obj.grabOffset = {
+                            x: transform.fromScreen.x(mouseX) - entity.gate.get(obj.id.gate).pos.x,
+                            y: transform.fromScreen.y(mouseY) - entity.gate.get(obj.id.gate).pos.y
                         }
-                    )
-                }
-                else{
-                    mouse.selected = []
-                    mouse.selected.push(
-                        {
-                            mode: "camera",
-                            id: -1,
-                            start: {
-                                ...camera.pos
-                            }
-                        }
-                    )
-                }
-            }
-        }
-
-    }else if(mouse.mode == "selected"){
-        mouse.mode = "idle"
-    }else if(mouse.mode == "plotting"){
-        let selected = {
-            gate: getHoveredGate("nodes"),
-            index: getHoveredNode(getHoveredGate("nodes"), "inputs"),
-        }
-        if (selected.index == -1 && selected.gate != -1) {
-            const selGate = getHoveredGate("precise")
-            if (entity.gate.exist(selGate)) {
-                selected = {
-                    gate: selGate,
-                    index: -1,
-                }
-            } else {
-                selected = {
-                    gate: -1,
-                    index: -1
-                }
-            }
-        }
-        if(selected.index != -1){
-            entity.connection.create(mouse.selected[0].id, selected, mouse.points)
-            mouse.points = []
-            mouse.mode = "idle"
-            mouse.drawingConnection = false
-        }
-    }
-}
-function rightClickLogic(){
-
-}
-function mouseDragged(){
-    updateOnDrag()
-}
-function updateOnDrag(){
-    if(mouse.mode == "idle" || mouse.mode == "dragging"){
-        mouse.mode = "dragging"
-        for(let obj of mouse.selected){
-            if(obj.mode == "gate"){
-                calculeIfShowDeleteButton()
-                if(keyIsDown(SHIFT)){
-                    entity.gate.move(
-                        obj.id.gate,
-                        roundGrid(transform.fromScreen.x(mouseX) - obj.grabOffset.x, settings.snapGrid),
-                        roundGrid(transform.fromScreen.y(mouseY) - obj.grabOffset.y, settings.snapGrid),
-                        "world"
-                    )
+                    }
                 }else{
-                    entity.gate.move(
-                        obj.id.gate,
-                        transform.fromScreen.x(mouseX) - obj.grabOffset.x,
-                        transform.fromScreen.y(mouseY) - obj.grabOffset.y,
-                        "world"
-                    )
+                    if(selected.gate != -1){
+                        if(selected.index != -1){
+                            mouse.drawingConnection = true
+                        }
+                        mouse.selected = []
+                        mouse.selected.push(
+                            {
+                                mode: selected.index >= 0 ? "node" : "gate",
+                                id: selected,
+                                grabOffset: grabOffset
+                            }
+                        )
+                    }
+                    else{
+                        mouse.selected = []
+                        mouse.selected.push(
+                            {
+                                mode: "camera",
+                                id: -1,
+                                start: {
+                                    ...camera.pos
+                                }
+                            }
+                        )
+                    }
                 }
             }
-            if(obj.mode == "camera"){
-                camera.pos = {
-                    x: obj.start.x + transform.fromScreen.x(mouse.start.x) - transform.fromScreen.x(mouseX),
-                    y: obj.start.y + transform.fromScreen.y(mouse.start.y) - transform.fromScreen.y(mouseY),
-                }
-            }
-        }
-    }else if(mouse.mode == "selecting"){
-        mouse.select
-        mouse.selectingBox.end = {
-            x: transform.fromScreen.x(mouseX),
-            y: transform.fromScreen.y(mouseY)
-        }
-    }
-}
-function mouseReleased(){
-    hideDeleteButton()
-    if(mouse.mode == "selecting"){
-        mouse.drawingConnection = false
-        mouse.mode = "idle"
-        mouse.selectingBox.active = false
-        mouse.selected = []
-        for(let gateId of getGatesInsideBox(
-            mouse.selectingBox.start.x,
-            mouse.selectingBox.start.y,
-            mouse.selectingBox.end.x,
-            mouse.selectingBox.end.y
-        )){
-            mouse.selected.push({
-                mode: "gate",
-                id: {
-                    gate: gateId,
-                    index: -1
-                },
-                grabOffset: {x: 0, y: 0}
-            })
-        }
-    }else if(mouse.mode == "dragging"){
-        if(mouse.drawingConnection){
+
+        }else if(mouse.mode == "selected"){
+            mouse.mode = "idle"
+        }else if(mouse.mode == "plotting"){
             let selected = {
                 gate: getHoveredGate("nodes"),
                 index: getHoveredNode(getHoveredGate("nodes"), "inputs"),
@@ -868,70 +817,189 @@ function mouseReleased(){
                     }
                 }
             }
-            entity.connection.create(mouse.selected[0].id, selected)
-            mouse.drawingConnection = false
-        }
-        mouse.mode = "idle"
-    }else if(mouse.mode == "idle"){
-        mouse.drawingConnection = false
-        if(mouse.selected[0].id.index != -1){
-            console.log("node")
-            let selected = {
-                gate: getHoveredGate("nodes"),
-                index: getHoveredNode(getHoveredGate("nodes"), "outputs"),
-            }
-            if (selected.index == -1 && selected.gate != -1) {
-                const selGate = getHoveredGate("precise")
-                if (entity.gate.exist(selGate)) {
-                    selected = {
-                        gate: selGate,
-                        index: -1,
-                    }
-                } else {
-                    selected = {
-                        gate: -1,
-                        index: -1
-                    }
-                }
-            }
-            if(JSON.stringify(mouse.selected[0].id) == JSON.stringify(selected)){
-                mouse.mode = "plotting"
-                mouse.drawingConnection = true
+            if(selected.index != -1){
+                entity.connection.create(mouse.selected[0].id, selected, mouse.points)
                 mouse.points = []
-            }else{
                 mouse.mode = "idle"
+                mouse.drawingConnection = false
             }
         }
-    }else if(mouse.mode == "plotting"){
-        if(keyIsDown(SHIFT)){
-            let lastPoint = mouse.points[mouse.points.length - 1]
-            if(!lastPoint){
-                const gateEntity = entity.gate.get(mouse.selected[0].id.gate)
-                const nodeEntity = gateEntity.outputs[mouse.selected[0].id.index]
-                lastPoint = {
-                    x: nodeEntity.x + gateEntity.pos.x, 
-                    y: nodeEntity.y + gateEntity.pos.y
+    },
+    drag(){
+        if(mouse.mode == "idle" || mouse.mode == "dragging"){
+            mouse.mode = "dragging"
+            for(let obj of mouse.selected){
+                if(obj.mode == "gate"){
+                    calculeIfShowDeleteButton()
+                    if(keyIsDown(SHIFT)){
+                        entity.gate.move(
+                            obj.id.gate,
+                            roundGrid(transform.fromScreen.x(mouseX) - obj.grabOffset.x, settings.snapGrid),
+                            roundGrid(transform.fromScreen.y(mouseY) - obj.grabOffset.y, settings.snapGrid),
+                            "world"
+                        )
+                    }else{
+                        entity.gate.move(
+                            obj.id.gate,
+                            transform.fromScreen.x(mouseX) - obj.grabOffset.x,
+                            transform.fromScreen.y(mouseY) - obj.grabOffset.y,
+                            "world"
+                        )
+                    }
+                }
+                if(obj.mode == "camera"){
+                    camera.pos = {
+                        x: obj.start.x + transform.fromScreen.x(mouse.start.x) - transform.fromScreen.x(mouseX),
+                        y: obj.start.y + transform.fromScreen.y(mouse.start.y) - transform.fromScreen.y(mouseY),
+                    }
                 }
             }
-            if(abs(lastPoint.x - mouse.startWorld.x) < abs(lastPoint.y - mouse.startWorld.y)){
-                mouse.points.push({x: lastPoint.x, y: mouse.startWorld.y})
-            }else{
-                mouse.points.push({x: mouse.startWorld.x, y: lastPoint.y})
+        }else if(mouse.mode == "selecting"){
+            mouse.select
+            mouse.selectingBox.end = {
+                x: transform.fromScreen.x(mouseX),
+                y: transform.fromScreen.y(mouseY)
             }
-        }else{
-            mouse.points.push({x: mouse.startWorld.x, y: mouse.startWorld.y})
         }
+    },
+    release(){
+        hideDeleteButton()
+        if(mouse.mode == "selecting"){
+            mouse.drawingConnection = false
+            mouse.mode = "idle"
+            mouse.selectingBox.active = false
+            mouse.selected = []
+            for(let gateId of getGatesInsideBox(
+                mouse.selectingBox.start.x,
+                mouse.selectingBox.start.y,
+                mouse.selectingBox.end.x,
+                mouse.selectingBox.end.y
+            )){
+                mouse.selected.push({
+                    mode: "gate",
+                    id: {
+                        gate: gateId,
+                        index: -1
+                    },
+                    grabOffset: {x: 0, y: 0}
+                })
+            }
+        }else if(mouse.mode == "dragging"){
+            if(mouse.drawingConnection){
+                let selected = {
+                    gate: getHoveredGate("nodes"),
+                    index: getHoveredNode(getHoveredGate("nodes"), "inputs"),
+                }
+                if (selected.index == -1 && selected.gate != -1) {
+                    const selGate = getHoveredGate("precise")
+                    if (entity.gate.exist(selGate)) {
+                        selected = {
+                            gate: selGate,
+                            index: -1,
+                        }
+                    } else {
+                        selected = {
+                            gate: -1,
+                            index: -1
+                        }
+                    }
+                }
+                entity.connection.create(mouse.selected[0].id, selected)
+                mouse.drawingConnection = false
+            }
+            mouse.mode = "idle"
+        }else if(mouse.mode == "idle"){
+            mouse.drawingConnection = false
+            if(mouse.selected[0].id.index != -1){
+                let selected = {
+                    gate: getHoveredGate("nodes"),
+                    index: getHoveredNode(getHoveredGate("nodes"), "outputs"),
+                }
+                if (selected.index == -1 && selected.gate != -1) {
+                    const selGate = getHoveredGate("precise")
+                    if (entity.gate.exist(selGate)) {
+                        selected = {
+                            gate: selGate,
+                            index: -1,
+                        }
+                    } else {
+                        selected = {
+                            gate: -1,
+                            index: -1
+                        }
+                    }
+                }
+                if(JSON.stringify(mouse.selected[0].id) == JSON.stringify(selected)){
+                    mouse.mode = "plotting"
+                    mouse.drawingConnection = true
+                    mouse.points = []
+                }else{
+                    mouse.mode = "idle"
+                }
+            }
+        }else if(mouse.mode == "plotting"){
+            if(keyIsDown(SHIFT)){
+                let lastPoint = mouse.points[mouse.points.length - 1]
+                if(!lastPoint){
+                    const gateEntity = entity.gate.get(mouse.selected[0].id.gate)
+                    const nodeEntity = gateEntity.outputs[mouse.selected[0].id.index]
+                    lastPoint = {
+                        x: nodeEntity.x + gateEntity.pos.x, 
+                        y: nodeEntity.y + gateEntity.pos.y
+                    }
+                }
+                if(abs(lastPoint.x - mouse.startWorld.x) < abs(lastPoint.y - mouse.startWorld.y)){
+                    mouse.points.push({x: lastPoint.x, y: mouse.startWorld.y})
+                }else{
+                    mouse.points.push({x: mouse.startWorld.x, y: lastPoint.y})
+                }
+            }else{
+                mouse.points.push({x: mouse.startWorld.x, y: mouse.startWorld.y})
+            }
+        }
+
+    },
+    grabGate(id){
+        mouse.hoveredGate = id
+        mouse.mode = "dragging"
+        mouse.selected = [{
+            mode: "gate",
+            id: {
+                gate: id,
+                index: -1
+            },
+            grabOffset: {
+                x: entity.gate.get(id).dimensions.width/2,
+                y: entity.gate.get(id).dimensions.height/2
+            }
+        }]
+        mouse.start = {x: mouseX, y: mouseY}
+        mouse.startWorld = {x: transform.fromScreen.x(mouseX), y: transform.fromScreen.y(mouseY)}
+        moveAtTop(mouse.hoveredGate)
+    }
+}
+function mousePressed(e){
+    if(mouseButton == LEFT){
+        mouse.click()
+    }
+}
+function mouseDragged(e){
+    if(mouseButton == LEFT){
+        mouse.drag()
+    }
+}
+function mouseReleased(e){
+    if(mouseButton == LEFT){
+        mouse.release()
     }
 }
 
 // --------- HITBOX UTILS ----------
 function getGatesInsideBox(x, y, x2, y2){
-    console.log(x, y, x2, y2)
     let gatesAffected = []
     for(let gateId of gateList.keys()){
         if(entity.gate.isInsideBox(gateId, x, y, x2, y2)){
             gatesAffected.push(gateId)
-            console.log("true")
         }else{
         }
     }
@@ -972,9 +1040,7 @@ function getHoveredNode(gateId, io = "inputs"){
     return(-1)
 }
 
-
 function drawDynamicObjects(){
-    console.log()
     if(mouse.drawingConnection){
         push()
         const gateEntity = entity.gate.get(mouse.selected[0].id.gate)
@@ -1131,10 +1197,10 @@ function roundGrid(value, grid){
     return(round(value / grid) * grid)
 }
 
-// TRASHHHHHH
+// DELETE BUTTON
+let deleteButtonEstate = "hide"
 function showDeleteButton() {
     const menu = document.getElementById("menu");
-    const deleteButton = document.getElementById("deleteButton");
     deleteButtonEstate = "show"
 
     menu.classList.add("hide");
@@ -1142,13 +1208,11 @@ function showDeleteButton() {
 }
 function hideDeleteButton() {
     const menu = document.getElementById("menu");
-    const deleteButton = document.getElementById("deleteButton");
     deleteButtonEstate = "hide"
 
     deleteButton.classList.remove("show");
     menu.classList.remove("hide");
 }
-let deleteButtonEstate = "hide"
 function calculeIfShowDeleteButton(){
     const menu = document.getElementById("menu");
     const rect = menu.getBoundingClientRect();
@@ -1174,4 +1238,83 @@ function removeButtonTrigger(){
             entity.gate.remove(obj.id.gate)
         }
     }
+}
+window.addEventListener("beforeunload", () => {
+    if(getItem("dataCollectAccepted") == true){
+        storeItem("sketch", compressSketch())
+    }
+});
+function dataCollect(msg){
+    banner.classList.add("hide");
+    if(msg == "accepted"){
+        newMessage("Next time you log in i'll remember you!")
+        storeItem("dataCollectAccepted", true)
+    }
+    else if(msg == "denied"){
+        newMessage("You'll lose your work when you exit,\nplease be aware...")
+    }
+}
+function isOnCanvas(e) {
+    return e.target === canvas.elt;
+}
+function resetAll(){
+    for(let id of gateList.keys()){
+        entity.gate.remove(id)
+    }
+    camera.x = 0,
+    camera.y = 0
+    if(gateList.size > 0){
+        newMessage("Nice and clean.")
+    }
+}
+
+function compressSketch(){
+    let compresed = [[], []]
+    for(let obj of gateList.keys()){
+        compresed[0].push(getEssentialDataFromGate(obj))
+    }
+    for(let obj of connectionsList.keys()){
+        compresed[1].push(getEssentialDataFromConnection(obj))
+    }
+    return(JSON.stringify(compresed))
+}
+function loadSketch(data){
+    gateList.clear()
+    connectionsList.clear()
+    let uncompresed = JSON.parse(data)
+    textSize(transform.toScreen.size(visuals.textSize))
+    for(let obj of uncompresed[0]){
+        gateList.set(obj.id, new gate(obj.x, obj.y, obj.name, obj.inputs, obj.outputs))
+    }
+    for(let obj of uncompresed[1]){
+        connectionsList.set(obj.id, new connection(obj.from, obj.to, obj.joints))
+    }
+    centerCanvas()
+    if(uncompresed[0].length > 0){
+        return(true)
+    }else{
+        return(false)
+    }
+}
+function getEssentialDataFromGate(id){
+    if(!entity.gate.exist(id)) return
+    const obj = entity.gate.get(id)
+    return({
+        id: id,
+        name: obj.name,
+        x: obj.pos.x,
+        y: obj.pos.y,
+        inputs: obj.io.inputs,
+        outputs: obj.io.outputs,
+    })
+}
+function getEssentialDataFromConnection(id){
+    if(!entity.connection.exist(id)) return
+    const obj = entity.connection.get(id)
+    return({
+        id: id,
+        from: obj.from,
+        to: obj.to,
+        joints: obj.points
+    })
 }
